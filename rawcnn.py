@@ -68,7 +68,7 @@ class resCNN(nn.Module):
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 cnn = resCNN()
-cnn.load_state_dict(torch.load(r'D:/Desktop/yanxue/rescnn.pth'))
+cnn.load_state_dict(torch.load(r'./rescnn.pth'))
 cnn.to(device)
 cnn.eval()
 

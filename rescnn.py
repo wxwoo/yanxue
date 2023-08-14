@@ -69,11 +69,11 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 cnn = resCNN()
 cnn.to(device)
 
-times = 0
-archivePath = 'D:/Desktop/yanxue/rescnn_archive/rescnn-iteration' + str(times) +'.pth'
-torch.save(cnn.state_dict(), archivePath)
+# times = 0
+# archivePath = 'D:/Desktop/yanxue/rescnn_archive/rescnn-iteration' + str(times) +'.pth'
+# torch.save(cnn.state_dict(), archivePath)
 
-torch.save(cnn.state_dict(), r'D:/Desktop/yanxue/rescnn.pth')
+torch.save(cnn.state_dict(), r'./rescnn.pth')
 
 
 print(device)
