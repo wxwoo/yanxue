@@ -6,3 +6,4 @@ rescnn.py: 覆盖rescnn.pth，生成一个空的神经网络，输出神经网�
 rawcnn.py: 从rescnn.pth加载神经网络模型，测试神经网络输出    
 train.py: 基于cpp训练神经网络，需要rawCNNMCTSselfmatch.cpp辅助    
 rawCNNMCTS.cpp/rawCNNMCTSselfmatch.cpp/rawMCTS.cpp: 辅助cnn-mcts.py/train.py，基于windows10环境    
+run.slurm
