@@ -5,7 +5,7 @@
 #include <random>
 #include <cmath>
 #include <ctime>
-#include <windows.h>
+// #include <windows.h>
 
 using namespace std;
 

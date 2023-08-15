@@ -3,7 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <ctime>
-#include <windows.h>
+// #include <windows.h>
 
 using namespace std;
 
