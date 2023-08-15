@@ -33,3 +33,5 @@
 /rawCNNMCTS.exe
 /rawCNNMCTSselfmatch.exe
 /rawMCTS.exe
+*.err
+*.out
