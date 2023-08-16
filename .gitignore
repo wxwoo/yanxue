@@ -8,5 +8,6 @@
 /record.txt
 /rescnnstruct.txt
 /envname.yaml
+/temp
 *.err
 *.out
