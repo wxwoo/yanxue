@@ -4,8 +4,8 @@ from torch.optim import Adam
 import torch.nn.functional as F
 from random import randint
 
-CHANNEL = 32
-BLOCKNUM = 10
+CHANNEL = 128
+BLOCKNUM = 20
 BOARDSIZE = 8
 
 class resBlock(nn.Module):
@@ -69,9 +69,11 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 cnn = resCNN()
 cnn.to(device)
 
-# times = 0
-# archivePath = 'D:/Desktop/yanxue/rescnn_archive/rescnn-iteration' + str(times) +'.pth'
-# torch.save(cnn.state_dict(), archivePath)
+archivePath = './rescnn_archive/rescnn-iteration0.pth'
+torch.save(cnn.state_dict(), archivePath)
+
+with open('./iteration.txt', 'w') as f:
+    f.write('1')
 
 torch.save(cnn.state_dict(), r'./rescnn.pth')
 

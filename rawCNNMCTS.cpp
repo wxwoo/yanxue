@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <cctype>
@@ -12,8 +13,8 @@ using namespace std;
 // fstream fs("output.txt",ios::out);
 
 const int BOARD_SIZE = 8;
-const double alpha = 0.156;
-const double epsilon = 0.25;
+const double alpha = 3;
+const double epsilon = 0.15;
 
 enum class Piece { EMPTY, BLACK, WHITE };
 
@@ -24,8 +25,9 @@ Piece togglePlayer(Piece player) {
 struct Position {
     int row;
     int col;
+    int p;
 
-    Position(int r = -1, int c = -1) : row(r), col(c) {}
+    Position(int r = -1, int c = -1) : row(r), col(c), p(0.0) {}
 
     bool operator==(const Position& other) const {
         return row == other.row && col == other.col;
@@ -34,6 +36,10 @@ struct Position {
     friend ostream& operator<<(ostream& os, const Position& position) {
         os << position.row << ' ' << position.col;
         return os;
+    }
+
+    friend bool operator<(const Position &a, const Position &b) {
+        return a.p < b.p;
     }
 
 };
@@ -242,12 +248,12 @@ public:
 
 const double PUCT_CONSTANT = 1.0;
 
-vector<double> dirichlet() {
+vector<double> dirichlet(const int& size) {
     random_device rd;
     mt19937 gen(rd() * time(NULL));
-    vector<double> sample(BOARD_SIZE * BOARD_SIZE);
+    vector<double> sample(size);
     double sum = 0;
-    for (int i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) {
+    for (int i = 0; i < size; i++) {
         gamma_distribution<double> d(alpha, 1);
         sample[i] = d(gen);
         sum += sample[i];
@@ -261,8 +267,10 @@ vector<double> dirichlet() {
 class MCTSNode {
 public:
     MCTSNode(MCTSNode* parent, Board board, Piece player, int isRoot = 0) 
-        : m_parent(parent), m_board(board), m_player(player), m_unexploredMoves(board.getValidMoves(m_player)), m_n(0), m_v(0.0), m_p(0.0) {
-            
+        : m_parent(parent), m_board(board), m_player(player), m_n(0), m_v(0.0), m_p(0.0) {
+
+        m_unexploredMoves = board.getValidMoves(m_player);
+
         cout<<0<<' ';
         for (int i = 0; i < BOARD_SIZE; ++i) {
             for (int j = 0; j < BOARD_SIZE; ++j) {
@@ -315,15 +323,27 @@ public:
         cin>>m_valuePredict;
         // fs<<m_valuePredict<<endl<<endl;
 
+        double sum = 0;
+        for (int i = 0; i < m_unexploredMoves.size(); ++i) {
+            sum += m_policyPredict[calc(m_unexploredMoves[i])];
+        }
+        for (int i = 0; i < m_unexploredMoves.size(); ++i) {
+            m_policyPredict[calc(m_unexploredMoves[i])] /= sum;
+        }
+
         if (isRoot == 1) {
-            vector<double>distribution = dirichlet();
-            for (int i = 0; i < BOARD_SIZE * BOARD_SIZE; ++i) {
+            vector<double>distribution = dirichlet(m_unexploredMoves.size());
+            for (int i = 0; i < m_unexploredMoves.size(); ++i) {
                 // fs<<m_policyPredict[i]<<' ';
-                m_policyPredict[i] = (1 - epsilon) * m_policyPredict[i] + epsilon * distribution[i];
+                m_policyPredict[calc(m_unexploredMoves[i])] = (1 - epsilon) * m_policyPredict[calc(m_unexploredMoves[i])] + epsilon * distribution[i];
                 // fs<<m_policyPredict[i]<<endl;
             }
             // fs<<endl;
         }
+        for(int i = 0; i < m_unexploredMoves.size(); ++i) {
+            m_unexploredMoves[i].p = m_policyPredict[calc(m_unexploredMoves[i])];
+        }
+        sort(m_unexploredMoves.begin(), m_unexploredMoves.end());
     }
 
     ~MCTSNode() {
@@ -366,12 +386,14 @@ public:
             child = new MCTSNode(this, newBoard, m_player);
         m_children.push_back(child);
         child->m_p = m_policyPredict[calc(move)];
+        if (child->m_p < 0.08)
+            child->m_p = 0.08;
 
         return child;
     }
 
     void backpropagate(double score) {
-        m_n++;
+        ++m_n;
         m_v += score;
 
         if (m_parent != nullptr) {
@@ -410,12 +432,12 @@ double annealParameter(const int& turn) {
 class MCTSSolver {
 public:
 
-    Position getBestMove(const Board& board, const Piece& player, const int& searchDepth, const int& timeIterations, const int& fieldKnowledge, const int& displayInfo, const int& turn) {
+    Position getBestMove(const Board& board, const Piece& player, const int& searchDepth, const int& iterationTimes, const int& fieldKnowledge, const int& displayInfo, const int& turn) {
         // srand(time(NULL));
 
         MCTSNode rootNode(nullptr, board, player, 1);
 
-        for (int i = 0; i < timeIterations; ) {
+        for (int i = 0; i < iterationTimes; ++i) {
             MCTSNode* node = &rootNode;
             int dep = 0;
 
@@ -426,7 +448,6 @@ public:
                     if (!node->m_children.empty()) {
                         node = node->select();
                         ++dep;
-                        ++i;
                     }
                     else {
                         break;
@@ -437,7 +458,6 @@ public:
                 if (node->m_unexploredMoves.size() > 0 && !node->m_board.isGameOver()) {
                     node = node->expand();
                     ++dep;
-                    ++i;
                 }
             }
 
@@ -473,7 +493,7 @@ public:
             if(displayInfo == 1)
                 cout << child->m_board.getLastMove() <<' '<< child->m_n<<' '<<child->m_v<<' '<<child->m_v*1.0/child->m_n<<endl;
 
-            // policyDistributuion[calc(child->m_board.getLastMove())] = pow(child->m_n, 1.0 / temperature) / pow((long double)(timeIterations), (long double)(1.0 / temperature));
+            // policyDistributuion[calc(child->m_board.getLastMove())] = pow(child->m_n, 1.0 / temperature) / pow((long double)(searchNodesCount), (long double)(1.0 / temperature));
             // fs << calc(child->m_board.getLastMove()) <<' '<< policyDistributuion[calc(child->m_board.getLastMove())]<<endl;
 
             if (child->m_n > bestChild->m_n) {
@@ -493,7 +513,7 @@ public:
 
 MCTSSolver MCTS;
 Board c_board;
-int tmp, roundLimit, searchDepth = 10, knowledge = 1, displayInfo = 0, turn;
+int tmp, iterationTimes, searchDepth, knowledge = 1, displayInfo = 0, turn;
 Piece currentPlayer;
 Position bestMove;
 int main()
@@ -515,11 +535,12 @@ int main()
             }
         }
     }
-    cin>>tmp>>roundLimit>>turn;
+    cin>>tmp>>searchDepth>>iterationTimes>>turn;
     if (tmp == -1)
         currentPlayer = Piece::WHITE;
     else
         currentPlayer = Piece::BLACK;
-    cout<<-1<<' '<<MCTS.getBestMove(c_board, currentPlayer, searchDepth, roundLimit, knowledge, displayInfo, turn)<<endl;
+    Position bestMove = MCTS.getBestMove(c_board, currentPlayer, searchDepth, iterationTimes, knowledge, displayInfo, turn);
+    cout<<-1<<' '<<bestMove<<endl;
     return 0;
 }

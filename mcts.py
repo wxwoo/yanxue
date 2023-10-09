@@ -139,7 +139,7 @@ class MCTS:
             self.backpropagate(node, result)
             best_child = self.get_best_child(self.root)
         return best_child.action
-if name == 'main':
+if __name__ == '__main__':
 # 初始化游戏状态
     state = [[0] * 8 for _ in range(8)]
     state[3][3], state[4][4] = 1, 1

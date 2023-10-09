@@ -3,10 +3,11 @@ import torch.nn as nn
 from torch.optim import Adam
 import torch.nn.functional as F
 from random import randint
+from time import time
 import numpy
 
-CHANNEL = 32
-BLOCKNUM = 10
+CHANNEL = 128
+BLOCKNUM = 20
 BOARDSIZE = 8
 
 class resBlock(nn.Module):
@@ -68,32 +69,86 @@ class resCNN(nn.Module):
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 cnn = resCNN()
-cnn.load_state_dict(torch.load(r'./rescnn.pth'))
+cnn.load_state_dict(torch.load(r'./rescnn.pth', map_location=device))
+# cnn.load_state_dict(torch.load(r'./rescnn_archive/rescnn-iteration21.pth', map_location=device))    # 128 30
+# cnn.load_state_dict(torch.load(r'./rescnn_archive_0/rescnn-iteration35.pth', map_location=device))  # 256 40
 cnn.to(device)
 cnn.eval()
 
+board = [[ 0, 0, 0, 0, 0, 0, 0, 0],
+         [ 0,-1, 1, 0, 0, 0, 0, 0],
+         [ 0, 0,-1, 0, 0,-0, 0, 0],
+         [ 0, 0,-1,-1, 1, 0, 0, 0],
+         [ 0, 0,-1, 1, 1, 1, 0, 0],
+         [ 0, 0, 0,-0, 1,-1, 0, 0],
+         [ 0, 0, 0, 0, 0, 0, 0, 0],
+         [ 0,-0, 0, 0, 0, 0, 0, 0]]
+f = 1
+#b = 1 w = 0
+
+def isValid(r, c, player):
+    if board[r][c] != 0:
+        return False
+    for d in (-1, 0, 1):
+        for e in (-1, 0, 1):
+            if d == 0 and e == 0:
+                continue
+            x = r
+            y = c
+            x += d
+            y += e
+            num = 0
+            while x >= 0 and y >= 0 and x < 8 and y < 8 and board[x][y] == -player:
+                x += d
+                y += e
+                num += 1
+            if num > 0 and x >= 0 and y >= 0 and x < 8 and y < 8 and board[x][y] == player:
+                return True
+    return False
 
 numpy.set_printoptions(suppress=True, precision=3)
-while 1:
+if __name__ == '__main__':
+    
+    
     read = torch.zeros(3,8,8)
     for i in range(8):
-        raw = input()
-        row = tuple(map(int, raw.strip().split(' ')))        
+        # raw = input()
+        # row = tuple(map(int, raw.strip().split(' ')))
+        row = board[i]    
         for j in range(8):
             if row[j] == 1:
                 read[0,i,j] = 1
             elif row [j] == -1:
                 read[1,i,j] = 1
-    f = int(input())
+    
+    # f = int(input())
+    
     for i in range(8):
         for j in range(8):
             read[2,i,j] = f
+    
+    if f == 0:
+        f = -1
+    
+    t = time()
     read = read.to(device)
     read = read.unsqueeze(0)
     policy, value = cnn(read)
     npolicy = F.softmax(policy,dim=-1).detach().to('cpu').numpy()
+    print(f'time elasped:{round(time() - t, 3)}')
     for i in range(8):
         for j in range(8):
-            print(npolicy[0][i*8+j],end = ' ')
+            if board[i][j] == 1:
+                print('#', end='')
+            elif board[i][j] == -1:
+                print('_', end='')
+            elif isValid(i, j, f):
+                print('*', end='')
+            else:
+                print(' ',end='')
+            
+            
+            print('{0:<6}'.format(round(float(npolicy[0][i*8+j]), 3)), end='')
+            
         print('')
     print(float(value.detach()))

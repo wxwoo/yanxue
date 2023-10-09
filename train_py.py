@@ -11,8 +11,8 @@ import numpy as np
 from time import time
 from math import sqrt
 
-CHANNEL = 32
-BLOCKNUM = 10
+CHANNEL = 256
+BLOCKNUM = 40
 BOARDSIZE = 8
 BATCH = 50
 EPOCHS = 20
@@ -20,7 +20,7 @@ DATASIZE = 7200
 DATAUSE = 2000
 ROUNDLIMIT = 500
 PROCESS = 3
-OUTPUT_INFO = 0
+OUTPUT_INFO = 1
 
 class resBlock(nn.Module):
     def __init__(self, x):

@@ -8,9 +8,10 @@ import torch.nn.functional as F
 import tkinter as tk
 from math import sqrt,log
 
-CHANNEL = 32
-BLOCKNUM = 10
+CHANNEL = 128
+BLOCKNUM = 30
 BOARDSIZE = 8
+SEARCHDEPTH = 10
 
 def calc(cood):
     return cood[0] * BOARDSIZE + cood[1]
@@ -74,7 +75,9 @@ class resCNN(nn.Module):
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 cnn = resCNN()
-cnn.load_state_dict(torch.load(r'D:/Desktop/yanxue/rescnn.pth'))
+# cnn.load_state_dict(torch.load(r'./rescnn.pth', map_location=device))
+# cnn.load_state_dict(torch.load(r'./rescnn_archive/rescnn-iteration21.pth', map_location=device))
+cnn.load_state_dict(torch.load(r'./rescnn_archive_1/rescnn-iteration5.pth', map_location=device))
 cnn.to(device)
 cnn.eval()
 
@@ -295,18 +298,20 @@ class CNNMCTS:
     #  1 : cpp mcts with knowledge
     #  2 : py cnn-mcts
     #  3 : cpp cnn-mcts
+    #  4 : priority strategy
+    #  5 : mobility strategy
     def getBestMove(self, state, player, timeIterations, knowledge, turn):
         if knowledge == 2:
             return self.CNNMCTSBestMove(state, player, timeIterations)
         if knowledge < 0:
             return self.rawMCTSBestMove(state, player, timeIterations, 1-knowledge)
         if knowledge == 3:
-            mcts = subprocess.Popen(r'./rawCNNMCTS.exe', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            mcts = subprocess.Popen(r'./rawCNNMCTS.out', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             input = ''
             for i in range(8):
                 for j in range(8):
                     input += str(state.board[i, j]) + ' '
-            input += str(player) + ' ' + str(timeIterations) + ' ' + str(turn) + '\n'
+            input += str(player) + ' ' + str(SEARCHDEPTH) + ' ' + str(timeIterations) + ' ' + str(turn) + '\n'
             mcts.stdin.write(input.encode())
             mcts.stdin.flush()
             output = mcts.stdout.readline()
@@ -334,11 +339,62 @@ class CNNMCTS:
             for i in range(8):
                 for j in range(8):
                     input += str(state.board[i, j]) + ' '
-            input += str(player) + ' ' + str(timeIterations) + ' ' + str(knowledge) + ' 0'
-            result = subprocess.run(['./rawMCTS.exe'], input=input.encode('utf-8'), stdout=subprocess.PIPE)
+            input += str(player) + ' ' + str(SEARCHDEPTH) + ' ' + str(timeIterations) + ' ' + str(knowledge) + ' 0'
+            result = subprocess.run(['./rawMCTS.out'], input=input.encode('utf-8'), stdout=subprocess.PIPE)
             stdout = tuple(map(int, result.stdout.decode('utf-8').strip().split(' ')))
             print((stdout[-2], stdout[-1]))
             return (stdout[-2], stdout[-1])
+        if knowledge == 4:
+            PRIORITY = [[100,-20,10,5,5,10,-20,100],
+                        [-20,-50,-2,-2,-2,-2,-50,-20],
+                        [10,-2,-1,-1,-1,-1,-2,-10],
+                        [5,-2,-1,-1,-1,-1,-2,5],
+                        [5,-2,-1,-1,-1,-1,-2,5],
+                        [10,-2,-1,-1,-1,-1,-2,-10],
+                        [-20,-50,-2,-2,-2,-2,-50,-20],
+                        [100,-20,10,5,5,10,-20,100]]
+            validMoves = state.getValidMoves(player)
+            rand.shuffle(validMoves)
+            bestScore = -99999999
+            bestMove = None
+            for move in validMoves:
+                n_state = state.copy()
+                n_state.makeMove(move, player)
+                score = 0
+                for i in range(8):
+                    for j in range(8):
+                        if n_state.board[i, j] == player:
+                            score += PRIORITY[i][j]
+                        elif n_state.board[i, j] == -player:
+                            score -= PRIORITY[i][j]
+                if score > bestScore:
+                    bestScore = score
+                    bestMove = move
+            return bestMove
+        if knowledge == 5:
+            validMoves = state.getValidMoves(player)
+            if len(validMoves) == 1:
+                return validMoves[0]
+            rand.shuffle(validMoves)
+            bestScore = -99999999
+            bestMove = None
+            for move in validMoves:
+                n_state = state.copy()
+                n_state.makeMove(move, player)
+                mobility = len(n_state.getValidMoves(player))
+                opponentMobility = len(n_state.getValidMoves(-player))
+                score = 0
+                if mobility + opponentMobility == 0:
+                    if n_state.getWinner() == player:
+                        score = 99999999
+                    elif n_state.getWinner == -player:
+                        score = -99999999
+                else:
+                    score = (mobility - opponentMobility) / (mobility + opponentMobility)
+                if score > bestScore:
+                    bestScore = score
+                    bestMove = move
+            return bestMove
 
     def CNNMCTSBestMove(self, state, player, timeIterations):
         rootNode = MCTSNode(state, player, 2)
@@ -446,6 +502,7 @@ if __name__ == '__main__':
             whiteLimit = int(input())
             whiteKnowledge = int(input())
         
+        st_time = time()
         c_state.print()
         isSurrender = False
         turn = 1
@@ -502,6 +559,7 @@ if __name__ == '__main__':
                 print("White win!")
             else:
                 print("Draw!")
+        print(time()- st_time)
         tmp = int(input("again?"))
         if tmp != 1:
             break

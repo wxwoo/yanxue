@@ -347,27 +347,33 @@ public:
 class MCTSSolver {
 public:
 
-    Position getBestMove(const Board& board, const Piece& player, const int& timeIterations, const int& fieldKnowledge, const int& displayInfo) {
+    Position getBestMove(const Board& board, const Piece& player, const int& searchDepth, const int& iterationTimes, const int& fieldKnowledge, const int& displayInfo) {
         srand(time(NULL));
 
         MCTSNode rootNode(nullptr, board, player);
 
-        for (int i = 0; i < timeIterations; i++) {
+        for (int i = 0; i < iterationTimes; ++i) {
             MCTSNode* node = &rootNode;
+            int dep = 0;
 
-            // Selection phase
-            while (node->m_unexploredMoves.empty() && !node->m_board.isGameOver()) {
-                if (!node->m_children.empty()) {
-                    node = node->select(player);
+            while (dep < searchDepth && !node->m_board.isGameOver())
+            {
+                // Selection phase
+                while (node->m_unexploredMoves.empty() && !node->m_board.isGameOver()) {
+                    if (!node->m_children.empty()) {
+                        node = node->select(player);
+                        ++dep;
+                    }
+                    else {
+                        break;
+                    }
                 }
-                else {
-                    break;
-                }
-            }
 
-            // Expansion phase
-            if (node->m_unexploredMoves.size() > 0 && !node->m_board.isGameOver()) {
-                node = node->expand();
+                // Expansion phase
+                if (node->m_unexploredMoves.size() > 0 && !node->m_board.isGameOver()) {
+                    node = node->expand();
+                    ++dep;
+                }
             }
     
             // Simulation phase
@@ -407,7 +413,7 @@ public:
 
 MCTSSolver MCTS;
 Board c_board;
-int tmp, roundLimit, knowledge, displayInfo;
+int tmp, iterationTimes, searchDepth, knowledge, displayInfo;
 Piece currentPlayer;
 int main()
 {
@@ -425,11 +431,11 @@ int main()
             }
         }
     }
-    cin>>tmp>>roundLimit>>knowledge>>displayInfo;
+    cin>>tmp>>searchDepth>>iterationTimes>>knowledge>>displayInfo;
     if (tmp == -1)
         currentPlayer = Piece::WHITE;
     else
         currentPlayer = Piece::BLACK;
-    cout<<MCTS.getBestMove(c_board, currentPlayer, roundLimit, knowledge, displayInfo);
+    cout<<MCTS.getBestMove(c_board, currentPlayer, searchDepth, iterationTimes, knowledge, displayInfo);
     return 0;
 }
